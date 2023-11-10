@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Draw Detection</title>
+    <style>
+        /* Import fonts */
+        @import url('https://fonts.googleapis.com/css?family=Roboto');
+        @import url('https://fonts.googleapis.com/css2?family=Edu+TAS+Beginner&display=swap');
+
+        /* Resetting default margin and ensuring full height for the body and HTML */
+        body,
+        html {
+            margin: 0;
+            height: 100%;
+        }
+
+        .row {
+            display: flex;
+            height: 100%;
+        }
+
+        .col {
+            color: #FF4455;
+            height: 100%;
+            float: bottom;
+            text-align: center;
+            align-content: center;
+            flex: 50%;
+            font-size: 20px;
+            padding: 35px 0 0 0;
+        }
+
+        .pic {
+            margin: 0 0 0 0;
+            padding: 0;
+            height: 290px;
+        }
+
+        #display-img {
+            height: 280px;
+            width: 280px;
+            border-radius: 5px;
+        }
+
+        canvas {
+            align-self: center;
+        }
+
+        .ins {
+            font-size: 18px;
+            background-color: #FFF;
+            border-radius: 5px;
+            color: #FFF;
+            text-align: center;
+            width: 50%;
+            padding: 10px;
+            margin: 0 auto;
+        }
+
+        .btn1 {
+            background-color: #ef8f00;
+            /*#4CAF50;*/
+            border: none;
+            border-radius: 5px;
+            /*color: #4A6572;*/
+            padding: 5px 20px;
+            text-align: center;
+            margin: 10px 30px 15px 30px;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 18px;
+        }
+
+        .btn1:hover {
+            box-shadow: 0 12px 16px 0 rgba(0, 0, 0, 0.24), 0 17px 50px 0 rgba(0, 0, 0, 0.19);
+        }
+
+        .pred {
+            font-style: italic;
+            font-size: 25px;
+        }
+
+        .b2 {
+            color: #232F34;
+        }
+
+        .b1 {
+            color: #344955;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="row">
+        <div class="col" style="background-color: #344955;">
+            <div><span>Draw Inside this Box!</span></div>
+            <div>
+                <button id="clearButton" class="btn1 b1">CLEAR</button>
+                <button class="myButton btn1 b1">PREDICT</button>
+            </div>
+            <div class="pic"><canvas id="canvas" width="280" height="280"
+                    style="border:5px solid; border-radius: 5px; cursor: pointer;"></canvas></div>
+            <p>I think it's a <span id="prediction-draw" class="pred">...</span></p>
+            <div class="ins" style="background-color: #f7113b;">Draw a <em>banana, apple, or cloud
+                </em> and see what the computer thinks about your doodle!</div>
+        </div>
+    </div>
+
+    <script src='http://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js'></script>
+    <!-- <script type="text/javascript" src="../handleDraw.js"></script> -->
+
+    <script>
+        var base64Image;
+
+        $(" #image").change(function () {
+            var reader = new FileReader(); reader.onload = function (e) {
+                var dataURL = reader.result;
+                $("#display-img").attr("src", dataURL); base64Image = dataURL.replace("data:image/png;base64,", "");
+                console.log(base64Image);
+            }; reader.readAsDataURL($("#image")[0].files[0]); $("#prediction-img").text("...");
+        }); $("#pred-btn").click(function (event) {
+            var message = { image: base64Image }; console.log(message);
+            $.post("http://127.0.0.1:5000/predict-image/", JSON.stringify(message), function (response) {
+                $("#prediction-img").text(response.predictionImg);
+            });
+        }); var base64Drawing; $(".myButton").click(function () {
+            var canvasObj = document.getElementById("canvas"); var img = canvasObj.toDataURL();
+            base64Drawing = img.replace("data:image/png;base64,", ""); var message = { image: base64Drawing };
+            console.log(message); $.ajax({
+                type: "POST", url: "http://127.0.0.1:5000/predict-drawing/",
+                contentType: "application/json", data: JSON.stringify(message), success: function (response) {
+                    $("#prediction-draw").text(response.predictionDraw);
+                }
+            });
+        }); $("#clearButton").click(function () {
+            base64Drawing = ""; $("#prediction-draw").text("...");
+        });
+
+        //handle event click
+        var canvas = document.querySelector("#canvas");
+        var context = canvas.getContext("2d");
+        canvas.width = 280;
+        canvas.height = 280;
+
+        var Mouse = { x: 0, y: 0 };
+        var lastMouse = { x: 0, y: 0 };
+        context.fillStyle = "white";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.color = "black";
+
+        canvas.addEventListener("mousemove", function (e) {
+            lastMouse.x = Mouse.x;
+            lastMouse.y = Mouse.y;
+
+            Mouse.x = e.pageX - this.offsetLeft;
+            Mouse.y = e.pageY - this.offsetTop;
+
+        }, false);
+
+        debug();
+
+        canvas.addEventListener("mousedown", function (e) {
+            canvas.addEventListener("mousemove", onPaint, false);
+
+        }, false);
+
+        canvas.addEventListener("mouseup", function () {
+            canvas.removeEventListener("mousemove", onPaint, false);
+
+        }, false);
+
+        var onPaint = function () {
+            context.lineWidth = 5;
+            context.lineJoin = "round";
+            context.lineCap = "round";
+            context.strokeStyle = context.color;
+
+            context.beginPath();
+            context.moveTo(lastMouse.x, lastMouse.y);
+            context.lineTo(Mouse.x, Mouse.y);
+            context.closePath();
+            context.stroke();
+        };
+
+        function debug() {
+            /* CLEAR BUTTON */
+            var clearButton = $("#clearButton");
+
+            clearButton.on("click", function () {
+
+                context.clearRect(0, 0, 280, 280);
+                context.fillStyle = "white";
+                context.fillRect(0, 0, canvas.width, canvas.height);
+
+            });
+            /* COLOR SELECTOR */
+            $("#colors").change(function () {
+                var color = $("#colors").val();
+                context.color = color;
+            });
+            /* LINE WIDTH */
+            $("#lineWidth").change(function () {
+                context.lineWidth = $(this).val();
+                console.log(context.lineWidth);
+            });
+        }
+
+
+
+
+
+    </script>
+</body>
+
+</html>
